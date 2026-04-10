@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Bingo Game Generator"
+version = "1.0.0"
+id = "artifacts/bingo"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26202
+
+[services.development]
+run = "pnpm --filter @workspace/bingo run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/bingo", "run", "build" ]
+publicDir = "artifacts/bingo/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26202"
+BASE_PATH = "/"
