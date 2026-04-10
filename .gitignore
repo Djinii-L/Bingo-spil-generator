@@ -44,6 +44,9 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
+# GitHub workflows (add directly on GitHub - Replit OAuth lacks workflow scope)
+.github/
+
 # Replit
 .cache/
 .local/
