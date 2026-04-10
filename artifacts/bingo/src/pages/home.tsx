@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,11 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { RefreshCcw, Play, Grid2X2, Sparkles, Hash, Printer } from "lucide-react";
+import { RefreshCcw, Play, Grid2X2, Sparkles, Hash, Printer, FileText, FileSpreadsheet } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, AlignmentType, TextRun, BorderStyle, PageBreak } from "docx";
+import { saveAs } from "file-saver";
+import * as XLSX from "xlsx";
 
 // Helper to shuffle array
 function shuffleArray<T>(array: T[]): T[] {
@@ -78,6 +81,116 @@ export default function Home() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadWord = async () => {
+    if (generatedCards.length === 0) return;
+
+    const cellBorder = {
+      top: { style: BorderStyle.SINGLE, size: 2 },
+      bottom: { style: BorderStyle.SINGLE, size: 2 },
+      left: { style: BorderStyle.SINGLE, size: 2 },
+      right: { style: BorderStyle.SINGLE, size: 2 },
+    };
+
+    const cardSections: (Paragraph | Table)[] = [];
+
+    generatedCards.forEach((card, cardIdx) => {
+      if (cardIdx > 0) {
+        cardSections.push(
+          new Paragraph({ children: [new PageBreak()] })
+        );
+      }
+
+      cardSections.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+          children: [
+            new TextRun({ text: "BINGO", bold: true, size: 48, font: "Arial" }),
+          ],
+        })
+      );
+
+      cardSections.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 300 },
+          children: [
+            new TextRun({ text: `Card #${cardIdx + 1}`, size: 20, color: "666666", font: "Arial" }),
+          ],
+        })
+      );
+
+      const tableRows = card.map((row) =>
+        new TableRow({
+          children: row.map((word) =>
+            new TableCell({
+              borders: cellBorder,
+              width: { size: Math.floor(9000 / cols), type: WidthType.DXA },
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  spacing: { before: 200, after: 200 },
+                  children: [
+                    new TextRun({ text: word, bold: true, size: 22, font: "Arial" }),
+                  ],
+                }),
+              ],
+            })
+          ),
+        })
+      );
+
+      cardSections.push(
+        new Table({
+          rows: tableRows,
+          width: { size: 9000, type: WidthType.DXA },
+        })
+      );
+    });
+
+    const doc = new Document({
+      sections: [
+        {
+          children: cardSections,
+        },
+      ],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, "bingo-cards.docx");
+    toast.success("Word document downloaded!");
+  };
+
+  const handleDownloadExcel = () => {
+    if (generatedCards.length === 0) return;
+
+    const wb = XLSX.utils.book_new();
+
+    generatedCards.forEach((card, cardIdx) => {
+      const sheetData: string[][] = [];
+
+      const headerRow = Array(cols).fill("");
+      headerRow[0] = "BINGO";
+      sheetData.push(headerRow);
+
+      sheetData.push([]);
+
+      card.forEach((row) => {
+        sheetData.push(row);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+      ws["!cols"] = Array(cols).fill({ wch: 16 });
+
+      const sheetName = `Card ${cardIdx + 1}`;
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    XLSX.writeFile(wb, "bingo-cards.xlsx");
+    toast.success("Excel file downloaded!");
   };
 
   const handlePullWord = () => {
@@ -224,15 +337,25 @@ export default function Home() {
               <div className="lg:col-span-8">
                 {generatedCards.length > 0 ? (
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between bg-white dark:bg-card p-4 rounded-xl border border-border shadow-sm">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-card p-4 rounded-xl border border-border shadow-sm">
                       <div>
                         <h2 className="text-xl font-bold text-card-foreground">Generated Cards</h2>
-                        <p className="text-muted-foreground text-sm">{generatedCards.length} ready to print</p>
+                        <p className="text-muted-foreground text-sm">{generatedCards.length} ready to download</p>
                       </div>
-                      <Button variant="outline" onClick={handlePrint} data-testid="btn-print" className="border-border/60 hover:bg-secondary/10 hover:text-secondary-foreground hover:border-secondary/30">
-                        <Printer className="mr-2 h-4 w-4" />
-                        Print Cards
-                      </Button>
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" onClick={handlePrint} data-testid="btn-print" className="border-border/60 hover:bg-secondary/10 hover:text-secondary-foreground hover:border-secondary/30">
+                          <Printer className="mr-2 h-4 w-4" />
+                          Print
+                        </Button>
+                        <Button variant="outline" onClick={handleDownloadWord} data-testid="btn-download-word" className="border-border/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30">
+                          <FileText className="mr-2 h-4 w-4" />
+                          Word
+                        </Button>
+                        <Button variant="outline" onClick={handleDownloadExcel} data-testid="btn-download-excel" className="border-border/60 hover:bg-green-500/10 hover:text-green-700 hover:border-green-500/30">
+                          <FileSpreadsheet className="mr-2 h-4 w-4" />
+                          Excel
+                        </Button>
+                      </div>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
