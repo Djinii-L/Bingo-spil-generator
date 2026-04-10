@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,11 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { RefreshCcw, Play, Grid2X2, Sparkles, Hash, Printer, FileText } from "lucide-react";
+import { RefreshCcw, Play, Grid2X2, Sparkles, Hash, Printer, FileText, Upload } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, AlignmentType, TextRun, BorderStyle, PageOrientation, VerticalAlign, HeightRule } from "docx";
 import { saveAs } from "file-saver";
+import * as XLSX from "xlsx";
 
 function shuffleArray<T>(array: T[]): T[] {
   const newArr = [...array];
@@ -31,6 +32,47 @@ export default function Home() {
   const [pool, setPool] = useState<string[]>([]);
   const [pulled, setPulled] = useState<string[]>([]);
   const [currentWord, setCurrentWord] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const data = evt.target?.result;
+      if (!data) return;
+
+      const workbook = XLSX.read(data, { type: "array" });
+      const allWords: string[] = [];
+
+      workbook.SheetNames.forEach((sheetName) => {
+        const sheet = workbook.Sheets[sheetName];
+        const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        rows.forEach((row) => {
+          row.forEach((cell) => {
+            const val = String(cell ?? "").trim();
+            if (val.length > 0) {
+              allWords.push(val);
+            }
+          });
+        });
+      });
+
+      if (allWords.length === 0) {
+        toast.error("Ingen ord fundet i filen. Tjek venligst dit Excel-ark.");
+        return;
+      }
+
+      setWordsText(allWords.join(", "));
+      toast.success(`${allWords.length} ord indl\u00e6st fra fil!`);
+    };
+
+    reader.readAsArrayBuffer(file);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, []);
 
   const parsedWords = useMemo(() => {
     return wordsText
@@ -217,10 +259,10 @@ export default function Home() {
                 <Card className="border-border shadow-md">
                   <CardHeader className="bg-muted/50 border-b border-border/50">
                     <CardTitle className="text-xl">Ord & Tal</CardTitle>
-                    <CardDescription>Indtast elementerne til dine bingo-kort. Adskil med komma eller nye linjer.</CardDescription>
+                    <CardDescription>Indtast elementerne til dine bingo-kort, eller upload en Excel-fil.</CardDescription>
                   </CardHeader>
                   <CardContent className="pt-6">
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       <div className="flex justify-between items-end">
                         <Label htmlFor="words" className="text-sm font-semibold">Ordliste</Label>
                         <span className="text-xs text-muted-foreground font-medium bg-muted px-2 py-1 rounded-md">
@@ -235,6 +277,27 @@ export default function Home() {
                         className="min-h-[180px] resize-none border-border/60 focus-visible:ring-secondary"
                         placeholder="f.eks. 1, 2, 3, 4&#10;eller Hund, Kat, Fugl"
                       />
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                          data-testid="input-file-upload"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          data-testid="btn-upload-excel"
+                          className="w-full border-border/60 hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload Excel-fil
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Alle celler fra alle ark bliver indl&aelig;st som ord.</p>
                     </div>
                   </CardContent>
                 </Card>
