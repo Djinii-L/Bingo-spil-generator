@@ -480,7 +480,12 @@ export default function Home() {
                           transition={{ type: "spring", stiffness: 300, damping: 20 }}
                           className="text-center w-full"
                         >
-                          <div className="inline-block bg-primary text-primary-foreground font-black text-6xl md:text-8xl py-8 px-12 rounded-3xl shadow-xl break-words break-all border-4 border-primary-foreground/20">
+                          <div className={`inline-block bg-primary text-primary-foreground font-black py-8 px-12 rounded-3xl shadow-xl border-4 border-primary-foreground/20 max-w-full ${
+                            currentWord.length > 40 ? "text-2xl md:text-4xl" :
+                            currentWord.length > 25 ? "text-3xl md:text-5xl" :
+                            currentWord.length > 15 ? "text-4xl md:text-6xl" :
+                            "text-6xl md:text-8xl"
+                          }`}>
                             {currentWord}
                           </div>
                         </motion.div>
